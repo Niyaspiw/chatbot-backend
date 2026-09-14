@@ -77,7 +77,7 @@ PROJECTS
 
 2) WINE QUALITY PREDICTION
    - Type: Academic project (machine learning web app)
-   - Duration: 2025
+   - Duration: 2026
    - Role: Solo Developer
    - Description: A machine learning model that predicts the quality of wine based on chemical properties. Deployed as a web application with a built-in AI chatbot for user assistance.
    - Tech stack:
