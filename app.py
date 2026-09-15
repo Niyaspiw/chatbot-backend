@@ -193,12 +193,43 @@ Now respond to the user's message following all these rules.
 """
 
 # ============================================================
-# INITIALIZE THE MODEL
+# MODEL FALLBACK CHAIN
+# Tries each model in order until one works
+# Order: highest quality first, then fallbacks
 # ============================================================
-model = genai.GenerativeModel(
-    model_name="gemini-2.5-flash",
-    system_instruction=SYSTEM_PROMPT,
-)
+MODEL_CHAIN = [
+    "gemini-3.6-flash",        # Current default (best quality)
+    "gemini-2.5-flash-lite",   # Higher quota fallback
+    "gemini-2.0-flash",        # Older but widely available
+]
+
+def generate_with_fallback(message):
+    """Tries each model in MODEL_CHAIN until one succeeds."""
+    last_error = "No models were attempted."
+    for model_name in MODEL_CHAIN:
+        try:
+            print(f"[chat] Trying model: {model_name}")
+            model = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=SYSTEM_PROMPT,
+            )
+            response = model.generate_content(message)
+            
+            # Detailed logging
+            print(f"[chat] {model_name} response received")
+            print(f"[chat]   response.text exists: {hasattr(response, 'text')}")
+            
+            if response and hasattr(response, 'text') and response.text:
+                print(f"[chat] ✅ Success with: {model_name}")
+                return response.text
+            else:
+                last_error = f"{model_name}: empty response"
+                print(f"[chat] ⚠️ {model_name}: empty response")
+        except Exception as e:
+            last_error = f"{model_name}: {type(e).__name__}: {e}"
+            print(f"[chat] ❌ {model_name} failed: {last_error}")
+            continue
+    raise RuntimeError(f"All models failed. Last error: {last_error}")
 
 # ============================================================
 # FLASK APP
@@ -237,9 +268,8 @@ def chat():
         if len(user_message) > 1000:
             return jsonify({"error": "Message too long (max 1000 characters)."}), 400
 
-        # Send to Gemini
-        response = model.generate_content(user_message)
-        reply = response.text if response and response.text else "Sorry, I couldn't generate a response."
+        # Send to Gemini (with automatic fallback)
+        reply = generate_with_fallback(user_message)
 
         return jsonify({"reply": reply}), 200
 
